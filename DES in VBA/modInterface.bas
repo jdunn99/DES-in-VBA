@@ -97,3 +97,31 @@ Public Sub DES_RANGE()
     MsgBox "Operation Complete", vbInformation
 End Sub
 
+' TODO: Add interface for encryption/decryption and a file picker
+Public Sub DES_FILE()
+    Dim path As String
+    path = "C:\Users\jack\Desktop\test.txt"
+    Dim key As String
+    Dim iv As String
+    Dim subkeys() As BitBuffer
+    Dim result As String
+    Dim fileHex As String
+   
+    Dim bytes() As Byte
+
+    bytes = Read_File(path)
+    fileHex = Byte_To_Hex(bytes)
+    
+    key = Get_Shape_Text("KeyBox")
+    iv = Get_Shape_Text("IVBox")
+    
+    If iv = "" Then iv = DEFAULT_IV
+    If Not ValidateKey(key) Then Exit Sub
+    
+    subkeys = Generate_Subkeys(key)
+    'result = DES_Decrypt(fileHex, key, iv)
+    result = Encrypt(fileHex, key, subkeys, iv)
+
+    Write_File path, result
+End Sub
+
