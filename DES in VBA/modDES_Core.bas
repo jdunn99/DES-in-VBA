@@ -3,161 +3,137 @@ Option Explicit
 ' DES Core Algorithm
 ' Encrpytion, Decryption, Cipher Block Chaining, Feistel Rounds
 
-' DES encryption function.
-'
-' Param hexPlaintext - The plaintext being encrypted
-' Param hexKey - The key used for encrpytion
-' Param subkeys - Array of 16 48-bit key s
-'
-' Returns String - The resulting encrypted string in hexadecimal format
-Public Function DES_Encrypt(hexPlaintext As String, hexKey As String, subkeys() As BitBuffer) As String
-    Dim pt As New BitBuffer
-    Dim key As New BitBuffer
-    Dim l As New BitBuffer
-    Dim R As New BitBuffer
-    
-    Dim i As Long
-    
-    ' Initial permutation
-    pt.To_Binary (hexPlaintext)
-    pt.Permute (Get_IP())
-    
-    ' Split left and right substrings
-    Set l = New BitBuffer
-    l.Set_Length (32)
-    
-    Set R = New BitBuffer
-    R.Set_Length 32
-    
-    For i = 0 To 31
-        l.Set_Bit i, pt.Get_Bit(i)
-        R.Set_Bit i, pt.Get_Bit(i + 32)
-    Next i
-    
-    ' Perform 16 ronuds of Feistel
-    For i = 0 To 15
-        Dim prev As BitBuffer
-        Set prev = R.Copy()
-        
-        Set R = l.XOR_Buffer(Feistel(R, subkeys(i)))
-        Set l = prev
-    Next i
-    
-    ' Rebuild buffer and convert to hex string
-    Dim combined As New BitBuffer
-    For i = 0 To 31
-        combined.Set_Bit i, R.Get_Bit(i)
-        combined.Set_Bit i + 32, l.Get_Bit(i)
-    Next i
-    combined.Permute (Get_Inverse_IP())
-    
-    DES_Encrypt = combined.To_Hex()
-End Function
-
-' DES decryption function.
-'
-' Param hexCiphertext - The ciphertext being decrypted
-' Param hexKey - The key used for decryption
-' Param subkeys - Array of 16 48-bit key s
-'
-' Returns String - The resulting encrypted string in hexadecimal format
-Public Function DES_Decrypt(ByVal hexCiphertext As String, ByVal hexKey As String, ByVal hexIV As String)
-    Dim i As Long
-    Dim currentHex As String
-    Dim decrypted As String
+Public Function DES_Bytes(ByRef data() As Byte, ByVal key As String, ByVal hexIV As String, ByRef subkeys() As BitBuffer, ByVal isEncrypt As Boolean) As String
+    Apply_Byte_Padding data
     Dim result As String
     
-    Dim current As New BitBuffer
-    Dim prev As New BitBuffer
-    Dim subkeys() As BitBuffer
+    Dim pt As String
+    pt = Byte_To_Hex(data)
+    result = Cipher_Block_Chain(pt, key, subkeys, True, hexIV)
     
-    subkeys = Generate_Subkeys(hexKey)
+    DES_Bytes = result
+End Function
+
+
+
+Public Function DES_Core(ByVal plaintext As String, ByVal key As String, ByVal hexIV As String, ByRef subkeys() As BitBuffer, ByVal isEncrypt As Boolean) As String
+    Dim result As String
+    Dim i As Long
+  
+    If isEncrypt Then plaintext = Apply_Padding(String_To_Hex(plaintext))
     
+    Debug.Print plaintext
+    result = ""
+    'result = Cipher_Block_Chain(plaintext, key, subkeys, isEncrypt, hexIV)
+
+    If Not isEncrypt Then
+        Dim j As Long
+        Dim currentHex As String
+        Dim hexToStr As String
+        
+        result = Remove_Padding(result)
+        
+        For i = 1 To Len(result) Step 2
+            currentHex = Mid(result, i, 2)
+            j = val("&H" & currentHex)
+            hexToStr = hexToStr & Chr(j)
+        Next i
+
+        result = hexToStr
+    End If
+
+    DES_Core = result
+End Function
+
+Public Function Cipher_Block_Chain_Bytes(ByRef data() As Byte, ByVal key As String, ByRef subkeys() As BitBuffer, ByVal isEncrypt As Boolean, ByVal hexIV As String)
+    Dim i As Long
     Dim j As Long
-    Dim temp As BitBuffer
     
-    i = LBound(subkeys)
-    j = UBound(subkeys)
+    Dim numBlocks As Long
+    Dim currentBlock(0 To 7) As Byte
+    Dim previousBlock(0 To 7) As Byte
+    Dim result() As Byte
     
-    Do While i < j
-        Set temp = subkeys(i)
-        Set subkeys(i) = subkeys(j)
-        Set subkeys(j) = temp
-        i = i + 1
-        j = j - 1
-    Loop
     
-    prev.To_Binary hexIV
-    
-    For i = 1 To Len(hexCiphertext) Step 16
-        currentHex = Mid(hexCiphertext, i, 16)
-
-        decrypted = DES_Encrypt(currentHex, hexKey, subkeys)
-        current.To_Binary decrypted
-        
-        Set current = current.XOR_Buffer(prev)
-        result = result & current.To_Hex()
-        
-        ' FIXED: update previous block
-        prev.To_Binary currentHex
-    Next i
-    
-    result = Remove_Padding(result)
-    
-    Dim hexToStr As String
-    For i = 1 To Len(result) Step 2
-        currentHex = Mid(result, i, 2)
-        j = val("&H" & currentHex)
-        hexToStr = hexToStr & Chr(j)
-    Next i
-    
-    DES_Decrypt = hexToStr
 End Function
 
-Public Function Encrypt(plaintext As String, key As String, subkeys() As BitBuffer, hexIV As String) As String
-    Dim previous As New BitBuffer
-    previous.To_Binary hexIV
-    
-    plaintext = Apply_Padding(String_To_Hex(plaintext))
-    
+Public Function Cipher_Block_Chain(ByVal plaintext As String, ByVal key As String, ByRef subkeys() As BitBuffer, ByVal isEncrypt As Boolean, ByVal hexIV As String) As String
+
+    Dim prev As BitBuffer
+    Set prev = New BitBuffer
+    prev.To_Binary hexIV
+
     Dim result As String
     Dim i As Long
-    
+
     For i = 1 To Len(plaintext) Step 16
         Dim chunk As String
         chunk = Mid(plaintext, i, 16)
-        
-        Dim current As New BitBuffer
-        current.To_Binary chunk
-        Set current = current.XOR_Buffer(previous)
-        
-        Dim encrypted As String
-        encrypted = DES_Encrypt(current.To_Hex(), key, subkeys)
-        
-        result = result & encrypted
-        previous.To_Binary encrypted
+
+        If isEncrypt Then
+            Dim current As New BitBuffer
+            current.To_Binary chunk
+            Set current = current.XOR_Buffer(prev)
+            
+            Dim encrypted As String
+            encrypted = Encrypt(current.To_Hex(), key, subkeys)
+            
+            result = result & encrypted
+            prev.To_Binary encrypted
+
+        Else
+            Dim decrypted As String
+            decrypted = Encrypt(chunk, key, subkeys) ' reversed keys
+            
+            Dim tempBuf As New BitBuffer
+            tempBuf.To_Binary decrypted
+            
+            Set tempBuf = tempBuf.XOR_Buffer(prev)
+            result = result & tempBuf.To_Hex()
+            
+            prev.To_Binary chunk
+        End If
     Next i
-    
-    Encrypt = result
+
+    Cipher_Block_Chain = result
 End Function
 
-Public Function Apply_Padding(text As String) As String
-    Dim length As Long
-    Dim padBytes As Long
-    Dim pad As String
+Public Function Encrypt(hexPlaintext As String, hexKey As String, subkeys() As BitBuffer) As String
+
+    Dim plaintext As New BitBuffer
+    Dim L As New BitBuffer
+    Dim R As New BitBuffer
     Dim i As Long
-    
-    length = Len(text) \ 2
-    padBytes = 8 - (length Mod 8)
-    pad = Right("0" & Hex(padBytes), 2)
-    
-    For i = 1 To padBytes
-        text = text & pad
-    Next i
-    
-    Apply_Padding = text
-End Function
 
+    plaintext.To_Binary hexPlaintext
+    plaintext.Permute Get_IP()
+
+    L.Set_Length 32
+    R.Set_Length 32
+
+    For i = 0 To 31
+        L.Set_Bit i, plaintext.Get_Bit(i)
+        R.Set_Bit i, plaintext.Get_Bit(i + 32)
+    Next i
+
+    Dim prev As BitBuffer
+    For i = 0 To 15
+        Set prev = R.Copy()
+        Set R = L.XOR_Buffer(Feistel(R, subkeys(i)))
+        Set L = prev
+    Next i
+
+    Dim combined As New BitBuffer
+
+    For i = 0 To 31
+        combined.Set_Bit i, R.Get_Bit(i)
+        combined.Set_Bit i + 32, L.Get_Bit(i)
+    Next i
+
+    combined.Permute Get_Inverse_IP()
+
+    Encrypt = combined.To_Hex()
+End Function
 
 Public Function Feistel(R As BitBuffer, subkey As BitBuffer) As BitBuffer
     Dim expanded As BitBuffer

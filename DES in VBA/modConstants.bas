@@ -1,6 +1,6 @@
 Attribute VB_Name = "modConstants"
 Option Explicit
-
+Public Const DEFAULT_IV As String = "0000000000000000"
 Public Function Get_IP() As Variant
     Get_IP = Array(58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4, _
                   62, 54, 46, 38, 30, 22, 14, 6, 64, 56, 48, 40, 32, 24, 16, 8, _

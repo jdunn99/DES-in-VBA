@@ -16,6 +16,26 @@ Public Function Apply_Padding(ByVal text As String) As String
     Apply_Padding = text
 End Function
 
+Public Sub Apply_Byte_Padding(ByRef data() As Byte)
+    Dim originalSize As Long: originalSize = UBound(data) + 1
+    Dim paddingNeeded As Integer
+    Dim newSize As Long
+    Dim i As Long
+    
+    ' DES needs 8-byte blocks
+    paddingNeeded = 8 - (originalSize Mod 8)
+    newSize = originalSize + paddingNeeded
+    
+    ' Resize the array once (much faster than string concatenation)
+    ReDim Preserve data(newSize - 1)
+    
+    ' Fill the new slots with the padding value (PKCS#7 style)
+    ' If we need 3 bytes, we fill them with the value 0x03
+    For i = originalSize To newSize - 1
+        data(i) = CByte(paddingNeeded)
+    Next i
+End Sub
+
 Public Function Remove_Padding(ByVal text As String) As String
     Dim lastByte As String
     Dim bytesToRemove As Long
@@ -37,3 +57,58 @@ Public Function String_To_Hex(text As String) As String
     String_To_Hex = result
 End Function
 
+Public Function Hex_To_Byte(ByRef str As String) As Byte()
+    Dim i As Long
+    Dim s As String
+    
+    Dim output() As Byte
+    
+    s = Replace(str, " ", "")
+    Debug.Print Len(s)
+    ReDim output((Len(s) \ 2) - 1)
+    
+    For i = 0 To UBound(output)
+        ' See: https://learn.microsoft.com/en-us/office/vba/language/concepts/getting-started/type-conversion-functions
+        output(i) = CByte("&H" & Mid$(str, (i * 2) + 1, 2))
+    Next i
+    Hex_To_Byte = output
+End Function
+
+Public Function Byte_To_Hex(ByRef bytes() As Byte) As String
+    Dim i As Long
+    Dim output As String
+    
+    ' Allocate space
+    output = Space$(UBound(bytes) * 2 + 2)
+    
+    For i = LBound(bytes) To UBound(bytes)
+        Mid$(output, (i * 2) + 1, 2) = Right$("0" & Hex$(bytes(i)), 2)
+    Next i
+    Byte_To_Hex = Trim(output)
+End Function
+
+Public Sub Suspend(ByVal status As Boolean)
+    With Application
+        .ScreenUpdating = Not status
+        .Calculation = IIf(Start, xlCalculationManual, xlCalculationAutomatic)
+        .EnableEvents = Not status
+    End With
+End Sub
+
+Public Function Reverse(ByRef arr() As Variant) As Variant
+  Dim i As Long
+  Dim j As Long
+
+  Dim temp As Variant
+
+  Do While i < j
+    Set temp = arr(i)
+    Set arr(i) = arr(j)
+    Set arr(j) = temp
+
+    i = i + 1
+    j = j + 1
+  Loop
+
+  Reverse = arr
+End Function
