@@ -22,19 +22,38 @@ Public Sub Apply_Byte_Padding(ByRef data() As Byte)
     Dim newSize As Long
     Dim i As Long
     
-    ' DES needs 8-byte blocks
     paddingNeeded = 8 - (originalSize Mod 8)
     newSize = originalSize + paddingNeeded
     
-    ' Resize the array once (much faster than string concatenation)
     ReDim Preserve data(newSize - 1)
-    
-    ' Fill the new slots with the padding value (PKCS#7 style)
-    ' If we need 3 bytes, we fill them with the value 0x03
+
     For i = originalSize To newSize - 1
         data(i) = CByte(paddingNeeded)
     Next i
 End Sub
+
+Public Function Remove_Byte_Padding(ByRef data() As Byte) As Byte()
+    Dim lastByte As Integer
+    Dim newSize As Long
+    Dim result() As Byte
+    Dim i As Long
+    
+    lastByte = CInt(data(UBound(data)))
+    
+    If lastByte < 1 Or lastByte > 8 Then
+        Remove_Byte_Padding = data
+        Exit Function
+    End If
+    
+    newSize = (UBound(data) + 1) - lastByte
+    ReDim result(0 To newSize - 1)
+    
+    For i = 0 To newSize - 1
+        result(i) = data(i)
+    Next i
+    
+    Remove_Byte_Padding = result
+End Function
 
 Public Function Remove_Padding(ByVal text As String) As String
     Dim lastByte As String
@@ -57,19 +76,19 @@ Public Function String_To_Hex(text As String) As String
     String_To_Hex = result
 End Function
 
-Public Function Hex_To_Byte(ByRef str As String) As Byte()
+Public Function Hex_To_Byte(ByVal str As String) As Byte()
     Dim i As Long
     Dim s As String
     
     Dim output() As Byte
     
     s = Replace(str, " ", "")
-    Debug.Print Len(s)
+   
     ReDim output((Len(s) \ 2) - 1)
     
     For i = 0 To UBound(output)
         ' See: https://learn.microsoft.com/en-us/office/vba/language/concepts/getting-started/type-conversion-functions
-        output(i) = CByte("&H" & Mid$(str, (i * 2) + 1, 2))
+        output(i) = CByte(val("&H" & Mid(s, i * 2 + 1, 2)))
     Next i
     Hex_To_Byte = output
 End Function
